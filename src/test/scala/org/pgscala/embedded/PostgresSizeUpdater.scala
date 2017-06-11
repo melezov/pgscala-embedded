@@ -1,8 +1,10 @@
 package org.pgscala.embedded
 
 import java.io.File
-import java.net.HttpURLConnection
+import java.net.{HttpURLConnection, URL}
+import java.security.MessageDigest
 import java.text.NumberFormat
+import java.util.regex.Pattern
 
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
@@ -13,11 +15,59 @@ import scala.util.Try
 object PostgresSizeUpdater extends StrictLogging {
   case class DownloadAttributes(version: PostgresVersion, os: OS, size: Long, sha256: Array[Byte])
 
+  private[this] val resolver = new PostgresVersionSpec()
+
+  private[this] def makePostgresDownload(_ver: PostgresVersion, _os: OS): PostgresDownloadBase = try {
+    PostgresDownload(_ver, _os)
+  } catch {
+    case _: Throwable => new {
+      val version = _ver
+      val os = _os
+
+      val url = {
+        val resolved = resolver.resolveActual(_ver, _os)
+        logger.info(s"Could not retrieve (${_ver}, ${_os}) from metadata, downloading: $resolved ...")
+        resolved
+      }
+
+      val patch = {(
+          Pattern.quote(s"postgresql-${_ver}-")
+        + "(\\d+)"
+        + Pattern.quote(s"-${os.name.classifier}${os.architecture.classifier}-binaries.${os.name.archiveMode}"))
+          .r.findFirstMatchIn(url)
+          .getOrElse(sys.error(s"Could not decode patch version from url: $url"))
+          .group(1).toInt
+      }
+
+      val (size, sha256) = {
+        val buffer = new Array[Byte](65536)
+        val is = new URL(url).openStream()
+        try {
+          val md = MessageDigest.getInstance("SHA-256")
+          var length = 0L
+          while ( {
+            val read = is.read(buffer)
+            if (read != -1) {
+              md.update(buffer, 0, read)
+              length += read
+              true
+            } else {
+              false
+            }
+          }) {}
+          (length, md.digest())
+        } finally {
+          is.close()
+        }
+      }
+    } with PostgresDownloadBase
+  }
+
   lazy val downloadAttributes = (for {
-    ver <- PostgresVersion.values.par
-    os <- OS.values
+    ver <- PostgresVersion.values.take(1)
+    os <- OS.values.take(1)
   } yield {
-    val download = PostgresDownload(ver, os)
+    val download = makePostgresDownload(ver, os)
     val url = download.downloadUrl
     val conn = new java.net.URL(url).openConnection().asInstanceOf[HttpURLConnection]
     conn.setRequestMethod("HEAD")

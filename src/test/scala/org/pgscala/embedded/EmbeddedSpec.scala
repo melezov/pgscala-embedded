@@ -1,9 +1,12 @@
 package org.pgscala.embedded
 
 import java.io.File
+import java.util.concurrent.Executors
 
 import com.typesafe.scalalogging.StrictLogging
 import org.specs2.Specification
+
+import scala.concurrent.ExecutionContext
 
 object EmbeddedSpec {
   val projectRoot: File = {
@@ -14,4 +17,6 @@ object EmbeddedSpec {
   }
 }
 
-trait EmbeddedSpec extends Specification with StrictLogging
+trait EmbeddedSpec extends Specification with StrictLogging {
+  implicit val executionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
+}
