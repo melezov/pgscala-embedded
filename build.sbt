@@ -9,15 +9,15 @@ unmanagedSourceDirectories in Test := Seq((scalaSource in Test).value)
 libraryDependencies ++= Seq(
   "org.apache.commons"         %  "commons-compress" % "1.14"
 , "commons-io"                 %  "commons-io"       % "2.5"
-, "com.typesafe.scala-logging" %% "scala-logging"    % "3.5.0"
+, "com.typesafe.scala-logging" %% "scala-logging"    % "3.7.2"
 
-, "org.postgresql" %  "postgresql"      % "42.1.1" % Test
-, "org.specs2"     %% "specs2-core"     % "3.9.1"  % Test
+, "org.postgresql" %  "postgresql"      % "42.1.4" % Test
+, "org.specs2"     %% "specs2-core"     % "3.9.5"  % Test
 , "ch.qos.logback" %  "logback-classic" % "1.2.3"  % Test
 )
 
 // ### COMPILE SETTINGS ### //
-crossScalaVersions := Seq("2.12.2", "2.11.11")
+crossScalaVersions := Seq("2.12.3", "2.11.11")
 scalaVersion := crossScalaVersions.value.head
 scalacOptions ++= Seq(
   "-deprecation"

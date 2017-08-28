@@ -6,7 +6,7 @@ import org.apache.commons.io.IOUtils
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class PostgresVersionSpec extends EmbeddedSpec {
   def is = s2"""
@@ -29,13 +29,24 @@ class PostgresVersionSpec extends EmbeddedSpec {
       (os.name match { case Windows => "win"; case Linux => "linux"; case OSX => "osx" }) +
       (os.architecture match { case AMD64 => "64"; case X86 => "32"; case X86_64 => "" })
 
-    val url = s"https://www.enterprisedb.com/postgresql-${pgVersionNoDots}-binaries-${classifier}"
-    val body = IOUtils.toString(new URI(url), "UTF-8")
+    def seekLink(extra: String) = Try {
+      val url = s"https://www.enterprisedb.com/postgresql-${pgVersionNoDots}-binaries-${classifier}${extra}"
+      val body = IOUtils.toString(new URI(url), "UTF-8")
 
-    """<a href="(https?://get.enterprisedb.com/postgresql/[^"]+?)">""".r
-      .findFirstMatchIn(body).getOrElse(sys.error("Could not find download link at: " + url))
-      .group(1)
-      .replaceFirst("^http:", "https:") // sometimes get.enterprisedb.com provides a non-SSL download link
+      """<a href="(https?://get.enterprisedb.com/postgresql/[^"]+?)">""".r
+        .findFirstMatchIn(body).getOrElse(sys.error("Could not find download link at: " + url))
+        .group(1)
+        .replaceFirst("^http:", "https:") // sometimes get.enterprisedb.com provides a non-SSL download link
+    }
+
+    seekLink("-0") match {
+      case Success(zeroLink) => zeroLink
+      case Failure(t) =>
+        seekLink("") match {
+          case Success(legacyLink) => legacyLink
+          case _ => throw t
+        }
+    }
   }
 
   def reResolveDownloads = (for {
